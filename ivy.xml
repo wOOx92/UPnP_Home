@@ -32,6 +32,12 @@
 
 		<!-- Push support -->
 		<dependency org="com.vaadin" name="vaadin-push" rev="&vaadin.version;" />
+		
+		<!-- Apache HTTP Core -->
+		<dependency org="org.apache.httpcomponents" name="httpcore" rev="4.2.2"/>
+		
+		<!-- Apache HTTP Client -->
+		<dependency org="org.apache.httpcomponents" name="httpclient" rev="4.5.2"/>
 
 		<!-- Servlet 3.0 API -->
 		<dependency org="javax.servlet" name="javax.servlet-api" rev="3.0.1" conf="nodeploy->default" />
@@ -50,5 +56,14 @@
 		<!-- Compiler for custom widget sets. Should not be deployed -->
 		<dependency org="com.vaadin" name="vaadin-client-compiler"
 			rev="&vaadin.version;" conf="widgetset-compile->default" />
+			
+			<!-- ICEPush Addon for Serverside Pushing to Frontend -->
+			<!-- <dependency org="org.vaadin.addons" name="icepush" rev="0.5.6" /> -->
+<!-- <ibiblio name="vaadin-addons" usepoms="true" m2compatible="true" root="http://maven.vaadin.com/vaadin-addons" /> -->
+			
+			<!--<dependency org="com.vaadin.addon.responsive" name="responsive" rev="1.0.0.alpha4" />-->
+
+<!-- <ibiblio name="vaadin-addons"  usepoms="true" m2compatible="true" root="http://maven.vaadin.com/vaadin-addons" />-->
+			
 	</dependencies>
 </ivy-module>
