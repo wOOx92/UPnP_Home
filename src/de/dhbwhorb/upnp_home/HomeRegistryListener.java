@@ -1,42 +1,41 @@
 package de.dhbwhorb.upnp_home;
 
-import java.util.Collection;
-
 import org.fourthline.cling.model.meta.Device;
 import org.fourthline.cling.model.meta.LocalDevice;
 import org.fourthline.cling.model.meta.RemoteDevice;
 import org.fourthline.cling.model.meta.RemoteService;
+import org.fourthline.cling.model.types.DeviceType;
 import org.fourthline.cling.registry.DefaultRegistryListener;
 import org.fourthline.cling.registry.Registry;
 
 import com.vaadin.ui.ListSelect;
+import com.vaadin.ui.Notification;
 
 public class HomeRegistryListener extends DefaultRegistryListener {
-	ListSelect curDeviceListSelect;
-	public HomeRegistryListener(ListSelect srcDeviceListSelect) {
-		curDeviceListSelect = srcDeviceListSelect;
+	ListSelect curSrcDeviceListSelect;
+	ListSelect curTargetDeviceListSelect;
+
+	public HomeRegistryListener(ListSelect srcDeviceListSelect, ListSelect targetDeviceListSelect) {
+		curSrcDeviceListSelect = srcDeviceListSelect;
+		curTargetDeviceListSelect = targetDeviceListSelect;
 	}
 
 	@Override
 	public void remoteDeviceDiscoveryStarted(Registry registry, RemoteDevice device) {
 		System.out.println("remoteDeviceDiscoveryStarted(...)");
 
-		// System.out.println("device.findServices().length: " +
-		// if (!srcDeviceSelect.conta) {
-		// srcDeviceSelect.addItem(device.getIdentity().getUdn().getIdentifierString());
-
-		// for (Device theDevice:registry.getRemoteDevices()){
-		// srcDeviceSelect.addItem(theDevice.getIdentity().getUdn().getIdentifierString());
-		// srcDeviceSelect.addItem(theDevice.getDisplayString());
-		// }
-
-		// }
+		// curSrcDeviceListSelect.removeAllItems();
+		// curTargetDeviceListSelect.removeAllItems();
+		//
+		// curSrcDeviceListSelect.addItem("Keine UPnP Media-Server gefunden.");
+		// curTargetDeviceListSelect.addItem("Keine UPnP Media-Renderer
+		// gefunden.");
 
 		// But you can't use the services
-		for (RemoteService service : device.findServices()) {
-			// assertEquals(service.getActions().length, 0);
-			// assertEquals(service.getStateVariables().length, 0);
-		}
+		// for (RemoteService service : device.findServices()) {
+		// assertEquals(service.getActions().length, 0);
+		// assertEquals(service.getStateVariables().length, 0);
+		// }
 
 	}
 
@@ -55,8 +54,8 @@ public class HomeRegistryListener extends DefaultRegistryListener {
 	 *            The Cling registry of all devices and services know to the
 	 *            local UPnP stack.
 	 * @param device
-	 *            A validated and hydrated device metadata graph, with
-	 *            complete service metadata.
+	 *            A validated and hydrated device metadata graph, with complete
+	 *            service metadata.
 	 */
 	@Override
 	public void remoteDeviceAdded(Registry registry, RemoteDevice device) {
@@ -79,8 +78,8 @@ public class HomeRegistryListener extends DefaultRegistryListener {
 	 *            The Cling registry of all devices and services know to the
 	 *            local UPnP stack.
 	 * @param device
-	 *            A validated and hydrated device metadata graph, with
-	 *            complete service metadata.
+	 *            A validated and hydrated device metadata graph, with complete
+	 *            service metadata.
 	 */
 	@Override
 	public void remoteDeviceRemoved(Registry registry, RemoteDevice device) {
@@ -126,22 +125,73 @@ public class HomeRegistryListener extends DefaultRegistryListener {
 
 	@Override
 	public void deviceAdded(Registry registry, Device device) {
-		System.out.println("deviceAdded(...)");
+		System.out.println("deviceAdded: " + device.getDisplayString());
+		DeviceType devType = device.getType();
+		if (device.getType().getNamespace().equals("schemas-upnp-org")) {
+			// Device says it's upnp conform
 
-		// layout.addComponent(new Label("deviceAdded " +
-		// device.getDisplayString()));
+			if (device.getType().getType().equals("MediaRenderer")) {
+				curTargetDeviceListSelect.removeItem("Keine UPnP Media-Renderer gefunden.");
+				// Device says it's an MediaRenderer
+				curTargetDeviceListSelect.addItem(device);
+				// Set a display name for the device object in the list
+				// selection
+				curTargetDeviceListSelect.setItemCaption(device, device.getDetails().getFriendlyName());
+
+			} else if (device.getType().getType().equals("MediaServer")) {
+				// Device says it's an MediaServer
+				curSrcDeviceListSelect.removeItem("Keine UPnP Media-Server gefunden.");
+
+				curSrcDeviceListSelect.addItem(device);
+				// Set a display name for the device object in the list
+				// selection
+				curSrcDeviceListSelect.setItemCaption(device, device.getDetails().getFriendlyName());
+			} else {
+				// Somethin' else..
+
+			}
+
+		} else {
+			// Device is not even upnp conform
+		}
+
+		if (curSrcDeviceListSelect.size() < 1) {
+			curSrcDeviceListSelect.addItem("Keine UPnP Media-Server gefunden.");
+		}
+
+		if (curTargetDeviceListSelect.size() < 1) {
+			curTargetDeviceListSelect.addItem("Keine UPnP Media-Renderer gefunden.");
+		}
 
 	}
 
 	@Override
 	public void deviceRemoved(Registry registry, Device device) {
-		System.out.println("deviceRemoved(...)" + device.getDisplayString());
+		System.out.println("deviceRemoved: " + device.getDisplayString());
+		if (device.getType().getType().equals("MediaRenderer")) {
+			curTargetDeviceListSelect.removeItem(device);
+
+		} else if (device.getType().getType().equals("MediaServer")) {
+			// Device says it's an MediaServer
+			curSrcDeviceListSelect.removeItem(device);
+
+		} else {
+			// Somethin' else..
+		}
+
+		if (curSrcDeviceListSelect.size() < 1) {
+			curSrcDeviceListSelect.addItem("Keine UPnP Media-Server gefunden.");
+		}
+
+		if (curTargetDeviceListSelect.size() < 1) {
+			curTargetDeviceListSelect.addItem("Keine UPnP Media-Renderer gefunden.");
+		}
+
 	}
 
 	@Override
 	public void beforeShutdown(Registry registry) {
-		
-		
+
 		System.out.println("beforeShutdown(...)");
 		// Collection<LocalDevice> localDevices =
 		// registry.getLocalDevices();
@@ -149,21 +199,47 @@ public class HomeRegistryListener extends DefaultRegistryListener {
 		// registry.getRemoteDevices();
 		// Collection<Device> devices = registry.getDevices();
 
-		Collection<Device> registratedDevices = registry.getDevices();
-
-		if (registratedDevices.isEmpty()) {
-			curDeviceListSelect.removeAllItems();
-			curDeviceListSelect.addItem("Keine UPnP Media-Server gefunden.");
-		} else {
-			for (Device regDevice : registratedDevices) {
-				// Add the device object to list selection
-				curDeviceListSelect.addItem(regDevice);
-				// Set a display name for the device object in the list
-				// selection
-				curDeviceListSelect.setItemCaption(regDevice, regDevice.getDetails().getFriendlyName());
-
-			}
-		}
+		// Collection<Device> registratedDevices = registry.getDevices();
+		//
+		// if (registratedDevices.isEmpty()) {
+		// curSrcDeviceListSelect.removeAllItems();
+		// curSrcDeviceListSelect.addItem("Keine UPnP Media-Server gefunden.");
+		//
+		// curTargetDeviceListSelect.removeAllItems();
+		// curTargetDeviceListSelect.addItem("Keine UPnP Media-Renderer
+		// gefunden.");
+		// } else {
+		// for (Device regDevice : registratedDevices) {
+		// DeviceType devType = regDevice.getType();
+		// if (regDevice.getType().getNamespace().equals("schemas-upnp-org")) {
+		// // Device says it's upnp conform
+		//
+		// if (regDevice.getType().getType().equals("MediaRenderer")) {
+		// // Device says it's an MediaRenderer
+		// curTargetDeviceListSelect.addItem(regDevice);
+		// // Set a display name for the device object in the list
+		// // selection
+		// curTargetDeviceListSelect.setItemCaption(regDevice,
+		// regDevice.getDetails().getFriendlyName());
+		// } else if (regDevice.getType().getType().equals("MediaServer")) {
+		// // Device says it's an MediaServer
+		//
+		// curSrcDeviceListSelect.addItem(regDevice);
+		// // Set a display name for the device object in the list
+		// // selection
+		// curSrcDeviceListSelect.setItemCaption(regDevice,
+		// regDevice.getDetails().getFriendlyName());
+		// } else {
+		// // Somethin' else..
+		//
+		// }
+		//
+		// }else{
+		// //Device is not even upnp conform
+		// }
+		//
+		// }
+		// }
 
 	}
 
