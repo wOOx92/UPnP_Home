@@ -3,13 +3,11 @@ package de.dhbwhorb.upnp_home;
 import org.fourthline.cling.model.meta.Device;
 import org.fourthline.cling.model.meta.LocalDevice;
 import org.fourthline.cling.model.meta.RemoteDevice;
-import org.fourthline.cling.model.meta.RemoteService;
-import org.fourthline.cling.model.types.DeviceType;
 import org.fourthline.cling.registry.DefaultRegistryListener;
 import org.fourthline.cling.registry.Registry;
 
+import com.vaadin.server.VaadinSession;
 import com.vaadin.ui.ListSelect;
-import com.vaadin.ui.Notification;
 
 public class HomeRegistryListener extends DefaultRegistryListener {
 	ListSelect curSrcDeviceListSelect;
@@ -22,7 +20,7 @@ public class HomeRegistryListener extends DefaultRegistryListener {
 
 	@Override
 	public void remoteDeviceDiscoveryStarted(Registry registry, RemoteDevice device) {
-		System.out.println("remoteDeviceDiscoveryStarted(...)");
+		System.out.println("remoteDeviceDiscoveryStarted: " + device.getDisplayString());
 
 		// curSrcDeviceListSelect.removeAllItems();
 		// curTargetDeviceListSelect.removeAllItems();
@@ -41,7 +39,7 @@ public class HomeRegistryListener extends DefaultRegistryListener {
 
 	@Override
 	public void remoteDeviceDiscoveryFailed(Registry registry, RemoteDevice device, Exception ex) {
-		System.out.println("remoteDeviceDiscoveryFailed(...)");
+		System.out.println("remoteDeviceDiscoveryFailed: " + device.getDisplayString());
 
 	}
 
@@ -59,7 +57,7 @@ public class HomeRegistryListener extends DefaultRegistryListener {
 	 */
 	@Override
 	public void remoteDeviceAdded(Registry registry, RemoteDevice device) {
-		System.out.println("remoteDeviceAdded(...)");
+		System.out.println("remoteDeviceAdded: " + device.getDisplayString());
 		deviceAdded(registry, device);
 	}
 
@@ -83,7 +81,7 @@ public class HomeRegistryListener extends DefaultRegistryListener {
 	 */
 	@Override
 	public void remoteDeviceRemoved(Registry registry, RemoteDevice device) {
-		System.out.println("remoteDeviceRemoved(...)");
+		System.out.println("remoteDeviceRemoved: " + device.getDisplayString());
 		deviceRemoved(registry, device);
 	}
 
@@ -101,7 +99,7 @@ public class HomeRegistryListener extends DefaultRegistryListener {
 	 */
 	@Override
 	public void localDeviceAdded(Registry registry, LocalDevice device) {
-		System.out.println("localDeviceAdded(...)");
+		System.out.println("localDeviceAdded: " + device.getDisplayString());
 		deviceAdded(registry, device);
 	}
 
@@ -119,28 +117,32 @@ public class HomeRegistryListener extends DefaultRegistryListener {
 	 */
 	@Override
 	public void localDeviceRemoved(Registry registry, LocalDevice device) {
-		System.out.println("localDeviceRemoved(...)");
+		System.out.println("localDeviceRemoved: " + device.getDisplayString());
 		deviceRemoved(registry, device);
 	}
 
 	@Override
 	public void deviceAdded(Registry registry, Device device) {
 		System.out.println("deviceAdded: " + device.getDisplayString());
-		DeviceType devType = device.getType();
+
 		if (device.getType().getNamespace().equals("schemas-upnp-org")) {
 			// Device says it's upnp conform
 
 			if (device.getType().getType().equals("MediaRenderer")) {
-				curTargetDeviceListSelect.removeItem("Keine UPnP Media-Renderer gefunden.");
-				// Device says it's an MediaRenderer
+
+				VaadinSession.getCurrent().lock();
+				curTargetDeviceListSelect.markAsDirty();
+
+				// curTargetDeviceListSelect.removeItem("Keine UPnP
+				// Media-Renderer gefunden.");
 				curTargetDeviceListSelect.addItem(device);
 				// Set a display name for the device object in the list
 				// selection
 				curTargetDeviceListSelect.setItemCaption(device, device.getDetails().getFriendlyName());
-
+				VaadinSession.getCurrent().unlock();
 			} else if (device.getType().getType().equals("MediaServer")) {
-				// Device says it's an MediaServer
-				curSrcDeviceListSelect.removeItem("Keine UPnP Media-Server gefunden.");
+				// curSrcDeviceListSelect.removeItem("Keine UPnP Media-Server
+				// gefunden.");
 
 				curSrcDeviceListSelect.addItem(device);
 				// Set a display name for the device object in the list
@@ -155,19 +157,25 @@ public class HomeRegistryListener extends DefaultRegistryListener {
 			// Device is not even upnp conform
 		}
 
-		if (curSrcDeviceListSelect.size() < 1) {
-			curSrcDeviceListSelect.addItem("Keine UPnP Media-Server gefunden.");
-		}
+//		Upnp_homeUI.getCurrent().push();
 
-		if (curTargetDeviceListSelect.size() < 1) {
-			curTargetDeviceListSelect.addItem("Keine UPnP Media-Renderer gefunden.");
-		}
+		// if (curSrcDeviceListSelect.size() < 1) {
+		// curSrcDeviceListSelect.addItem("Keine UPnP Media-Server gefunden.");
+		// }
+		//
+		// if (curTargetDeviceListSelect.size() < 1) {
+		// curTargetDeviceListSelect.addItem("Keine UPnP Media-Renderer
+		// gefunden.");
+		// }
 
 	}
 
 	@Override
 	public void deviceRemoved(Registry registry, Device device) {
 		System.out.println("deviceRemoved: " + device.getDisplayString());
+
+		// curSrcDeviceListSelect.removeItem(device);
+
 		if (device.getType().getType().equals("MediaRenderer")) {
 			curTargetDeviceListSelect.removeItem(device);
 
@@ -179,13 +187,14 @@ public class HomeRegistryListener extends DefaultRegistryListener {
 			// Somethin' else..
 		}
 
-		if (curSrcDeviceListSelect.size() < 1) {
-			curSrcDeviceListSelect.addItem("Keine UPnP Media-Server gefunden.");
-		}
-
-		if (curTargetDeviceListSelect.size() < 1) {
-			curTargetDeviceListSelect.addItem("Keine UPnP Media-Renderer gefunden.");
-		}
+		// if (curSrcDeviceListSelect.size() < 1) {
+		// curSrcDeviceListSelect.addItem("Keine UPnP Media-Server gefunden.");
+		// }
+		//
+		// if (curTargetDeviceListSelect.size() < 1) {
+		// curTargetDeviceListSelect.addItem("Keine UPnP Media-Renderer
+		// gefunden.");
+		// }
 
 	}
 

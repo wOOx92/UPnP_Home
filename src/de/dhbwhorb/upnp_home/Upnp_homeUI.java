@@ -1,5 +1,7 @@
 package de.dhbwhorb.upnp_home;
 
+import java.util.List;
+
 import javax.servlet.annotation.WebServlet;
 
 import org.fourthline.cling.UpnpService;
@@ -9,8 +11,12 @@ import org.fourthline.cling.model.action.ActionInvocation;
 import org.fourthline.cling.model.message.UpnpResponse;
 import org.fourthline.cling.model.message.header.STAllHeader;
 import org.fourthline.cling.model.meta.RemoteDevice;
-import org.fourthline.cling.model.meta.Service;
+import org.fourthline.cling.model.meta.RemoteService;
 import org.fourthline.cling.model.types.UDAServiceId;
+import org.fourthline.cling.support.contentdirectory.callback.Browse;
+import org.fourthline.cling.support.model.BrowseFlag;
+import org.fourthline.cling.support.model.DIDLContent;
+import org.fourthline.cling.support.model.container.Container;
 
 import com.vaadin.annotations.Theme;
 import com.vaadin.annotations.VaadinServletConfiguration;
@@ -19,6 +25,7 @@ import com.vaadin.server.ExternalResource;
 import com.vaadin.server.Resource;
 import com.vaadin.server.VaadinRequest;
 import com.vaadin.server.VaadinServlet;
+import com.vaadin.server.VaadinSession;
 import com.vaadin.shared.ui.label.ContentMode;
 import com.vaadin.ui.Button;
 import com.vaadin.ui.Button.ClickEvent;
@@ -57,6 +64,8 @@ public class Upnp_homeUI extends UI {
 	Panel srcDeviceInfoPanel = new Panel("Details");
 	Panel targetDeviceInfoPanel = new Panel("Details");
 
+	// private ICEPush push = new ICEPush();
+
 	@WebServlet(value = "/*", asyncSupported = true)
 	@VaadinServletConfiguration(productionMode = false, ui = Upnp_homeUI.class)
 	public static class Servlet extends VaadinServlet {
@@ -64,6 +73,12 @@ public class Upnp_homeUI extends UI {
 
 	@Override
 	protected void init(VaadinRequest request) {
+		setPollInterval(2000); // how often UI should poll the server to see if
+								// there are any changes
+		VaadinSession.getCurrent().getSession().setMaxInactiveInterval(-1); // no
+																			// session
+																			// timeout
+
 		gridLayout = new GridLayout(2, 4);
 		titleLabel.setContentMode(ContentMode.HTML);
 		titleLabel2.setContentMode(ContentMode.HTML);
@@ -122,45 +137,77 @@ public class Upnp_homeUI extends UI {
 					 * GetSortCapabilities Search X_GetRemoteSharingStatus
 					 * GetSystemUpdateID
 					 */
-					// org.fourthline.cling.model.meta.Action<RemoteService>
-					// browseAction = selectedDevice
-					// .findService(new ServiceType("schemas-upnp-org",
-					// "ContentDirectory")).getAction("Browse");
+					RemoteService contentDirectoryService = selectedDevice.getRoot()
+							.findService(new UDAServiceId("ContentDirectory"));
 
-					Service service = selectedDevice.findService(new UDAServiceId("ContentDirectory"));
-					org.fourthline.cling.model.meta.Action getBrowseAction = service.getAction("Browse");
-					ActionInvocation getBrowseInvocation = new ActionInvocation(getBrowseAction);
+					ActionCallback browseCallback = new Browse(contentDirectoryService, "0",
+							BrowseFlag.DIRECT_CHILDREN) {
 
-					ActionCallback getBrowseCallback = new ActionCallback(getBrowseInvocation) {
+						@Override
+						public void received(ActionInvocation actionInvocation, DIDLContent didl) {
+							// TODO Auto-generated method stub
 
-						public void success(ActionInvocation invocation) {
-							// ActionArgumentValue status =
-							// invocation.getOutput("ResultStatus");
+							List<Container> containers = didl.getContainers();
+							
+							System.out.println("Containersize: " + Integer.toString(containers.size()));
+							for (Container con : containers) {
+								System.out.println("ContainerID: " + con.getId() + " Name: " + con.getTitle());
+							}
 
-							System.out.println("SUCCESS");
+							// System.out.println(Integer.toString(didl.getItems().size()));
+						}
+
+						@Override
+						public void updateStatus(Status status) {
+							// Called before and after loading the DIDL content
 						}
 
 						@Override
 						public void failure(ActionInvocation invocation, UpnpResponse operation, String defaultMsg) {
-							// TODO Auto-generated method stub
-							System.out.println("FAILURE: " + defaultMsg);
+							System.out.println(defaultMsg);
 						}
+
 					};
-					upnpService.getControlPoint().execute(getBrowseCallback);
 
+					upnpService.getControlPoint().execute(browseCallback);
+
+					// org.fourthline.cling.model.meta.Action<RemoteService>
+					// browseAction = contentDirectoryService
+					// .getAction("Browse");
+
+					// ActionInvocation getBrowseInvocation = new
+					// ActionInvocation(browseAction);
+
+					// ActionCallback browseCallback = new
+					// ActionCallback(getBrowseInvocation) {
+					//
+					// public void success(ActionInvocation invocation) {
+					// // ActionArgumentValue status =
+					// // invocation.getOutput("ResultStatus");
+					//
+					// System.out.println("SUCCESS");
+					// }
+					//
+					// @Override
+					// public void failure(ActionInvocation invocation,
+					// UpnpResponse operation, String defaultMsg) {
+					// // TODO Auto-generated method stub
+					// System.out.println("FAILURE: " + defaultMsg);
+					// }
+					// };
+
+					// upnpService.getControlPoint().execute(browseCallback);
 				}
-
 			}
 		});
-		
-		
+
 		refreshButton.addClickListener(new Button.ClickListener() {
 			@Override
 			public void buttonClick(ClickEvent event) {
-//				srcDeviceListSelect.removeAllItems();
-//				targetDeviceListSelect.removeAllItems();
-				
-				upnpService.getControlPoint().search(new STAllHeader());
+				// srcDeviceListSelect.removeAllItems();
+				// targetDeviceListSelect.removeAllItems();
+				// srcDeviceListSelect.addItem("TEST");
+				// upnpService.getControlPoint().search(new STAllHeader());
 			}
 		});
 		srcDeviceListSelect.setWidth("100%");
@@ -237,12 +284,12 @@ public class Upnp_homeUI extends UI {
 		upnpService.getControlPoint().search(new STAllHeader());
 
 		// Wait a few seconds for the upnp devices to respond
-		try {
-			Thread.sleep(4000);
-		} catch (InterruptedException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
+		// try {
+		// Thread.sleep(4000);
+		// } catch (InterruptedException e) {
+		// // TODO Auto-generated catch block
+		// e.printStackTrace();
+		// }
 
 		// Release all resources and advertise BYEBYE to other UPnP devices
 		// System.out.println("Stopping Cling...");
