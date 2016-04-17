@@ -16,11 +16,14 @@ import org.fourthline.cling.model.types.UDAServiceId;
 import org.fourthline.cling.support.contentdirectory.callback.Browse;
 import org.fourthline.cling.support.model.BrowseFlag;
 import org.fourthline.cling.support.model.DIDLContent;
+import org.fourthline.cling.support.model.DescMeta;
 import org.fourthline.cling.support.model.container.Container;
 
 import com.vaadin.annotations.Theme;
 import com.vaadin.annotations.VaadinServletConfiguration;
+import com.vaadin.data.Item;
 import com.vaadin.data.Property;
+import com.vaadin.data.Property.ValueChangeEvent;
 import com.vaadin.server.ExternalResource;
 import com.vaadin.server.Resource;
 import com.vaadin.server.VaadinRequest;
@@ -29,13 +32,19 @@ import com.vaadin.server.VaadinSession;
 import com.vaadin.shared.ui.label.ContentMode;
 import com.vaadin.ui.Button;
 import com.vaadin.ui.Button.ClickEvent;
+import com.vaadin.ui.Tree.CollapseEvent;
+import com.vaadin.ui.Tree.CollapseListener;
+import com.vaadin.ui.Tree.ExpandEvent;
+import com.vaadin.ui.Tree.ExpandListener;
 import com.vaadin.ui.FormLayout;
 import com.vaadin.ui.GridLayout;
 import com.vaadin.ui.Label;
 import com.vaadin.ui.ListSelect;
 import com.vaadin.ui.Notification;
 import com.vaadin.ui.Panel;
+import com.vaadin.ui.Table;
 import com.vaadin.ui.TextField;
+import com.vaadin.ui.TreeTable;
 import com.vaadin.ui.UI;
 import com.vaadin.ui.VerticalLayout;
 
@@ -48,6 +57,9 @@ public class Upnp_homeUI extends UI {
 	VerticalLayout srcVertLayout;
 	VerticalLayout targetVertLayout;
 
+	static String NO_UPNP_SERVER = "Keine UPnP Media-Server gefunden.";
+	static String NO_UPNP_RENDERER = "Keine UPnP Media-Renderer gefunden.";
+
 	// The UPnP Service
 	UpnpService upnpService;
 
@@ -56,10 +68,8 @@ public class Upnp_homeUI extends UI {
 	Label titleLabel2 = new Label("<h1>&nbsp;</h1>");
 	ListSelect srcDeviceListSelect = new ListSelect("<h2>Media-Server</h2>");
 	ListSelect targetDeviceListSelect = new ListSelect("<h2>Media-Renderer</h2>");
-
-	Button refreshButton = new Button("Aktualisieren");
-
-	Button playButton = new Button("Play");
+	RemoteDevice selectedSrcDevice;
+	TreeTable srcContentTable = new TreeTable();
 
 	Panel srcDeviceInfoPanel = new Panel("Details");
 	Panel targetDeviceInfoPanel = new Panel("Details");
@@ -84,6 +94,7 @@ public class Upnp_homeUI extends UI {
 		titleLabel2.setContentMode(ContentMode.HTML);
 		srcDeviceListSelect.setCaptionAsHtml(true);
 		targetDeviceListSelect.setCaptionAsHtml(true);
+
 		// UPnP discovery is asynchronous, we need a callback
 		HomeRegistryListener listener = new HomeRegistryListener(srcDeviceListSelect, targetDeviceListSelect);
 
@@ -98,122 +109,176 @@ public class Upnp_homeUI extends UI {
 			// A user selected a device from the Source Device Box
 			@Override
 			public void valueChange(com.vaadin.data.Property.ValueChangeEvent event) {
-				if (srcDeviceListSelect.getValue().equals("Keine UPnP Media-Server gefunden.")) {
-					// do nothin.
-				} else {
-					RemoteDevice selectedDevice = (RemoteDevice) srcDeviceListSelect.getValue();
-					// Show details of the selected device
-					FormLayout deviceDetailsForm = new FormLayout();
-					// content.addStyleName("mypanelcontent");
+				if (srcDeviceListSelect.getValue() != null) {
+					if (srcDeviceListSelect.getValue().equals(Upnp_homeUI.NO_UPNP_SERVER)) {
+						System.out.println("'" + Upnp_homeUI.NO_UPNP_SERVER + "'" + " wurde angeklickt.");
+						// do nothin.
+					} else {
+						selectedSrcDevice = (RemoteDevice) srcDeviceListSelect.getValue();
+						// Show details of the selected device
+						FormLayout deviceDetailsForm = new FormLayout();
+						// content.addStyleName("mypanelcontent");
 
-					org.fourthline.cling.model.meta.Icon[] icons = selectedDevice.getIcons();
-					// Get Image from Server
-					// Image deviceImage = new Image();
+						org.fourthline.cling.model.meta.Icon[] icons = selectedSrcDevice.getIcons();
+						// Get Image from Server
+						// Image deviceImage = new Image();
 
-					Resource imageRes = new ExternalResource(
-							selectedDevice.getIdentity().getDescriptorURL().getProtocol() + "://"
-									+ selectedDevice.getIdentity().getDescriptorURL().getAuthority()
-									+ icons[0].getUri().toString());
+						Resource imageRes = new ExternalResource(
+								selectedSrcDevice.getIdentity().getDescriptorURL().getProtocol() + "://"
+										+ selectedSrcDevice.getIdentity().getDescriptorURL().getAuthority()
+										+ icons[0].getUri().toString());
 
-					TextField udnTextField = new TextField("UDN (UUID) ");
-					udnTextField.setValue(selectedDevice.getIdentity().getUdn().getIdentifierString());
-					udnTextField.setWidth("100%");
-					udnTextField.setEnabled(false);
-					deviceDetailsForm.addComponents(udnTextField);
-					udnTextField.setIcon(imageRes);
+						TextField udnTextField = new TextField("UDN (UUID) ");
+						udnTextField.setValue(selectedSrcDevice.getIdentity().getUdn().getIdentifierString());
+						udnTextField.setWidth("100%");
+						udnTextField.setEnabled(false);
+						deviceDetailsForm.addComponents(udnTextField);
+						udnTextField.setIcon(imageRes);
 
-					TextField nameTextField = new TextField("Name ");
-					nameTextField.setValue(selectedDevice.getDisplayString());
-					nameTextField.setWidth("100%");
-					nameTextField.setEnabled(false);
-					deviceDetailsForm.addComponent(nameTextField);
-					deviceDetailsForm.setMargin(true);
-					srcDeviceInfoPanel.setContent(deviceDetailsForm);
+						TextField nameTextField = new TextField("Name ");
+						nameTextField.setValue(selectedSrcDevice.getDisplayString());
+						nameTextField.setWidth("100%");
+						nameTextField.setEnabled(false);
+						deviceDetailsForm.addComponent(nameTextField);
+						deviceDetailsForm.setMargin(true);
+						srcDeviceInfoPanel.setContent(deviceDetailsForm);
 
-					// Start ContentDirectory:1 Service
+						srcContentTable.removeAllItems();
+						// Start ContentDirectory:1 Service
 
-					/*
-					 * e.g. Actions: Browse GetSearchCapabilities
-					 * GetSortCapabilities Search X_GetRemoteSharingStatus
-					 * GetSystemUpdateID
-					 */
-					RemoteService contentDirectoryService = selectedDevice.getRoot()
-							.findService(new UDAServiceId("ContentDirectory"));
+						/*
+						 * e.g. Actions: Browse GetSearchCapabilities
+						 * GetSortCapabilities Search X_GetRemoteSharingStatus
+						 * GetSystemUpdateID
+						 */
+						RemoteService contentDirectoryService = selectedSrcDevice.getRoot()
+								.findService(new UDAServiceId("ContentDirectory"));
 
-					ActionCallback browseCallback = new Browse(contentDirectoryService, "0",
-							BrowseFlag.DIRECT_CHILDREN) {
+						ActionCallback browseCallback = new Browse(contentDirectoryService, "0",
+								BrowseFlag.DIRECT_CHILDREN) {
 
-						@Override
-						public void received(ActionInvocation actionInvocation, DIDLContent didl) {
-							// TODO Auto-generated method stub
-
-							List<Container> containers = didl.getContainers();
-							
-							System.out.println("Containersize: " + Integer.toString(containers.size()));
-							for (Container con : containers) {
-								System.out.println("ContainerID: " + con.getId() + " Name: " + con.getTitle());
+							@Override
+							public void received(ActionInvocation actionInvocation, DIDLContent didl) {
+								// Browse Root
+								List<Container> containers = didl.getContainers();
+								System.out.println("didl.getCount(): " + Long.toString(didl.getCount()));
+								System.out.println("Containersize: " + Integer.toString(containers.size()));
+								for (Container con : containers) {
+									System.out.println("ContainerID: " + con.getId() + " Name: " + con.getTitle());
+									srcContentTable.addItem(new Object[] { con.getTitle() }, con.getId());
+								}
 							}
 
-							// System.out.println(Integer.toString(didl.getItems().size()));
-						}
+							@Override
+							public void updateStatus(Status status) {
+								// Called before and after loading the DIDL
+								// content
+							}
 
-						@Override
-						public void updateStatus(Status status) {
-							// Called before and after loading the DIDL content
-						}
+							@Override
+							public void failure(ActionInvocation invocation, UpnpResponse operation,
+									String defaultMsg) {
+								System.out.println(defaultMsg);
+							}
 
-						@Override
-						public void failure(ActionInvocation invocation, UpnpResponse operation, String defaultMsg) {
-							System.out.println(defaultMsg);
-						}
+						};
 
-					};
+						upnpService.getControlPoint().execute(browseCallback);
 
-					upnpService.getControlPoint().execute(browseCallback);
-
-					// org.fourthline.cling.model.meta.Action<RemoteService>
-					// browseAction = contentDirectoryService
-					// .getAction("Browse");
-
-					// ActionInvocation getBrowseInvocation = new
-					// ActionInvocation(browseAction);
-
-					// ActionCallback browseCallback = new
-					// ActionCallback(getBrowseInvocation) {
-					//
-					// public void success(ActionInvocation invocation) {
-					// // ActionArgumentValue status =
-					// // invocation.getOutput("ResultStatus");
-					//
-					// System.out.println("SUCCESS");
-					// }
-					//
-					// @Override
-					// public void failure(ActionInvocation invocation,
-					// UpnpResponse operation, String defaultMsg) {
-					// // TODO Auto-generated method stub
-					// System.out.println("FAILURE: " + defaultMsg);
-					// }
-					// };
-
-					// upnpService.getControlPoint().execute(browseCallback);
+					}
 				}
 			}
 		});
 
-		refreshButton.addClickListener(new Button.ClickListener() {
+		srcDeviceListSelect.setWidth("100%");
+		srcDeviceListSelect.setHeight(150, Unit.PIXELS);
+		srcDeviceListSelect.addItem(Upnp_homeUI.NO_UPNP_SERVER);
+		srcContentTable.setSelectable(true);
+
+		srcContentTable.addContainerProperty("Ordner", String.class, null);
+		// srcContentTable.addContainerProperty("Children", Integer.class,
+		// null);
+		srcContentTable.setWidth("100%");
+
+		srcContentTable.addValueChangeListener(new Property.ValueChangeListener() {
 			@Override
-			public void buttonClick(ClickEvent event) {
-				// srcDeviceListSelect.removeAllItems();
-				// targetDeviceListSelect.removeAllItems();
-				// srcDeviceListSelect.addItem("TEST");
-				// upnpService.getControlPoint().search(new STAllHeader());
+			public void valueChange(ValueChangeEvent event) {
+				System.out.println("Selected: " + srcContentTable.getValue());
+
 			}
 		});
-		srcDeviceListSelect.setWidth("100%");
 
-		srcVertLayout = new VerticalLayout(titleLabel, refreshButton, srcDeviceListSelect, srcDeviceInfoPanel);
+		srcContentTable.addExpandListener(new ExpandListener() {
 
+			@Override
+			public void nodeExpand(ExpandEvent event) {
+
+				// User selected a Folder
+				RemoteService contentDirectoryService = selectedSrcDevice.getRoot()
+						.findService(new UDAServiceId("ContentDirectory"));
+
+				ActionCallback browseCallback = new Browse(contentDirectoryService, event.getItemId().toString(),
+						BrowseFlag.DIRECT_CHILDREN) {
+
+					@Override
+					public void received(ActionInvocation actionInvocation, DIDLContent didl) {
+
+						if (didl.getCount() < 1) {
+							srcContentTable.addItem(new Object[] { "Dieser Ordner ethält keine Elemente." }, "ASDASD");
+							srcContentTable.setParent("ASDASD", event.getItemId());
+
+						} else {
+							// "navigate down" -> Add children
+							List<Container> containers = didl.getContainers();
+							for (Container con : containers) {
+								srcContentTable.addItem(new Object[] { con.getTitle() }, con.getId());
+								srcContentTable.setParent(con.getId(), event.getItemId());
+							}
+
+							List<org.fourthline.cling.support.model.item.Item> items = didl.getItems();
+							for (org.fourthline.cling.support.model.item.Item item : items) {
+								item.getId();
+
+								srcContentTable.addItem(new Object[] { item.getId() }, item.getId());
+								srcContentTable.setParent(item.getId(), event.getItemId());
+								srcContentTable.setColumnCollapsible(item.getId(), false);
+								// srcContentTable.addExpandListener(listener);
+							}
+						}
+
+					}
+
+					@Override
+					public void updateStatus(Status status) {
+						// Called before and after loading the DIDL
+						// content
+					}
+
+					@Override
+					public void failure(ActionInvocation invocation, UpnpResponse operation, String defaultMsg) {
+						System.out.println(defaultMsg);
+					}
+
+				};
+
+				upnpService.getControlPoint().execute(browseCallback);
+
+			}
+		});
+
+		srcContentTable.addCollapseListener(new CollapseListener() {
+
+			@Override
+			public void nodeCollapse(CollapseEvent event) {
+				// TODO Auto-generated method stub
+
+			}
+		});
+
+		srcContentTable.setHeightUndefined();
+		srcVertLayout = new VerticalLayout(titleLabel, srcDeviceListSelect, srcDeviceInfoPanel, srcContentTable);
+		srcVertLayout.setHeightUndefined();
+		gridLayout.setHeightUndefined();
 		gridLayout.addComponent(srcVertLayout, 0, 0);
 
 		// TARGET
@@ -225,53 +290,53 @@ public class Upnp_homeUI extends UI {
 			// A user selected a device from the Source Device Box
 			@Override
 			public void valueChange(com.vaadin.data.Property.ValueChangeEvent event) {
-				if (targetDeviceListSelect.getValue().equals("Keine UPnP Media-Renderer gefunden.")) {
-					// do nothin.
-				} else {
-					RemoteDevice selectedDevice = (RemoteDevice) targetDeviceListSelect.getValue();
-					// Show details of the selected device
-					FormLayout targetDeviceDetailsForm = new FormLayout();
-					// content.addStyleName("mypanelcontent");
+				if (targetDeviceListSelect.getValue() != null) {
 
-					org.fourthline.cling.model.meta.Icon[] icons = selectedDevice.getIcons();
-					// Get Image from Server
-					// Image deviceImage = new Image();
+					if (targetDeviceListSelect.getValue().equals(Upnp_homeUI.NO_UPNP_RENDERER)) {
+						System.out.println("'" + Upnp_homeUI.NO_UPNP_RENDERER + "'" + " wurde angeklickt.");
+						targetDeviceInfoPanel.setContent(null);
+						// do nothin.
+					} else {
+						RemoteDevice selectedDevice = (RemoteDevice) targetDeviceListSelect.getValue();
+						// Show details of the selected device
+						FormLayout targetDeviceDetailsForm = new FormLayout();
+						// content.addStyleName("mypanelcontent");
 
-					Resource imageRes = new ExternalResource(
-							selectedDevice.getIdentity().getDescriptorURL().getProtocol() + "://"
-									+ selectedDevice.getIdentity().getDescriptorURL().getAuthority()
-									+ icons[0].getUri().toString());
+						org.fourthline.cling.model.meta.Icon[] icons = selectedDevice.getIcons();
+						// Get Image from Server
+						// Image deviceImage = new Image();
 
-					TextField udnTargetTextField = new TextField("UDN (UUID) ");
-					udnTargetTextField.setValue(selectedDevice.getIdentity().getUdn().getIdentifierString());
-					udnTargetTextField.setWidth("100%");
-					udnTargetTextField.setEnabled(false);
-					targetDeviceDetailsForm.addComponents(udnTargetTextField);
-					udnTargetTextField.setIcon(imageRes);
+						Resource imageRes = new ExternalResource(
+								selectedDevice.getIdentity().getDescriptorURL().getProtocol() + "://"
+										+ selectedDevice.getIdentity().getDescriptorURL().getAuthority()
+										+ icons[0].getUri().toString());
 
-					TextField nameTargetTextField = new TextField("Name ");
-					nameTargetTextField.setValue(selectedDevice.getDisplayString());
-					nameTargetTextField.setWidth("100%");
-					nameTargetTextField.setEnabled(false);
-					targetDeviceDetailsForm.addComponent(nameTargetTextField);
-					targetDeviceDetailsForm.setMargin(true);
-					targetDeviceInfoPanel.setContent(targetDeviceDetailsForm);
+						TextField udnTargetTextField = new TextField("UDN (UUID) ");
+						udnTargetTextField.setValue(selectedDevice.getIdentity().getUdn().getIdentifierString());
+						udnTargetTextField.setWidth("100%");
+						udnTargetTextField.setEnabled(false);
+						targetDeviceDetailsForm.addComponents(udnTargetTextField);
+						udnTargetTextField.setIcon(imageRes);
+
+						TextField nameTargetTextField = new TextField("Name ");
+						nameTargetTextField.setValue(selectedDevice.getDisplayString());
+						nameTargetTextField.setWidth("100%");
+						nameTargetTextField.setEnabled(false);
+						targetDeviceDetailsForm.addComponent(nameTargetTextField);
+						targetDeviceDetailsForm.setMargin(true);
+						targetDeviceInfoPanel.setContent(targetDeviceDetailsForm);
+					}
 				}
-
 			}
 		});
 
 		targetDeviceListSelect.setWidth("100%");
-		// targetDeviceListSelect.setHeight("100%");
+		// targetDeviceListSelect.setHeightUndefined();
+		targetDeviceListSelect.setHeight(150, Unit.PIXELS);
+		targetDeviceListSelect.addItem(Upnp_homeUI.NO_UPNP_RENDERER);
 
-		playButton.addClickListener(new Button.ClickListener() {
-			@Override
-			public void buttonClick(ClickEvent event) {
-				Notification.show("Do not press this button again");
-			}
-		});
+		targetVertLayout = new VerticalLayout(titleLabel2, targetDeviceListSelect, targetDeviceInfoPanel);
 
-		targetVertLayout = new VerticalLayout(titleLabel2, playButton, targetDeviceListSelect, targetDeviceInfoPanel);
 		gridLayout.addComponent(targetVertLayout, 1, 0);
 
 		// This will create necessary network resources for UPnP right away

@@ -129,6 +129,9 @@ public class HomeRegistryListener extends DefaultRegistryListener {
 			// Device says it's upnp conform
 
 			if (device.getType().getType().equals("MediaRenderer")) {
+				if (curTargetDeviceListSelect.size() == 1) {
+					curTargetDeviceListSelect.removeAllItems();
+				}
 
 				VaadinSession.getCurrent().lock();
 				curTargetDeviceListSelect.markAsDirty();
@@ -141,8 +144,9 @@ public class HomeRegistryListener extends DefaultRegistryListener {
 				curTargetDeviceListSelect.setItemCaption(device, device.getDetails().getFriendlyName());
 				VaadinSession.getCurrent().unlock();
 			} else if (device.getType().getType().equals("MediaServer")) {
-				// curSrcDeviceListSelect.removeItem("Keine UPnP Media-Server
-				// gefunden.");
+				if (curSrcDeviceListSelect.size() == 1) {
+					curSrcDeviceListSelect.removeAllItems();
+				}
 
 				curSrcDeviceListSelect.addItem(device);
 				// Set a display name for the device object in the list
@@ -157,7 +161,7 @@ public class HomeRegistryListener extends DefaultRegistryListener {
 			// Device is not even upnp conform
 		}
 
-//		Upnp_homeUI.getCurrent().push();
+		// Upnp_homeUI.getCurrent().push();
 
 		// if (curSrcDeviceListSelect.size() < 1) {
 		// curSrcDeviceListSelect.addItem("Keine UPnP Media-Server gefunden.");
@@ -179,9 +183,17 @@ public class HomeRegistryListener extends DefaultRegistryListener {
 		if (device.getType().getType().equals("MediaRenderer")) {
 			curTargetDeviceListSelect.removeItem(device);
 
+			if (curTargetDeviceListSelect.size() == 0) {
+				curTargetDeviceListSelect.addItem("Keine UPnP Media-Renderer gefunden.");
+			}
+
 		} else if (device.getType().getType().equals("MediaServer")) {
 			// Device says it's an MediaServer
 			curSrcDeviceListSelect.removeItem(device);
+
+			if (curSrcDeviceListSelect.size() == 0) {
+				curSrcDeviceListSelect.addItem("Keine UPnP Media-Server gefunden.");
+			}
 
 		} else {
 			// Somethin' else..

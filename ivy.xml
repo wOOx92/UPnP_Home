@@ -59,7 +59,9 @@
 			
 		<!-- Jetty Websocket Server -->
 		<dependency org="org.eclipse.jetty.websocket" name="websocket-server" rev="9.3.9.M1"/>
-			
+		
+		<!-- 4th line Seamless Util-->
+		<dependency org="org.seamless" name="seamless-util" rev="1.1.1"/>
 			
 		<!-- ICEPush Addon for Serverside Pushing to Frontend -->
 		<dependency org="org.vaadin.addons" name="icepush" rev="0.5.6" />
