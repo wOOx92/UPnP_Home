@@ -165,7 +165,15 @@ public class Upnp_homeUI extends UI {
 								System.out.println("Containersize: " + Integer.toString(containers.size()));
 								for (Container con : containers) {
 									System.out.println("ContainerID: " + con.getId() + " Name: " + con.getTitle());
-									srcContentTable.addItem(new Object[] { con.getTitle() }, con.getId());
+									srcContentTable.addItem(new Object[] { con.getTitle(), "container" }, con.getId());
+								}
+
+								List<org.fourthline.cling.support.model.item.Item> items = didl.getItems();
+								for (org.fourthline.cling.support.model.item.Item item : items) {
+									item.getId();
+									srcContentTable.addItem(new Object[] { item.getId(), "item" }, item.getId());
+									srcContentTable.setParent(item.getId(), "0");
+									srcContentTable.setChildrenAllowed(item.getId(), false);
 								}
 							}
 
@@ -191,19 +199,18 @@ public class Upnp_homeUI extends UI {
 		});
 
 		srcDeviceListSelect.setWidth("100%");
-		srcDeviceListSelect.setHeight(150, Unit.PIXELS);
+		srcDeviceListSelect.setHeight(100, Unit.PIXELS);
 		srcDeviceListSelect.addItem(Upnp_homeUI.NO_UPNP_SERVER);
 		srcContentTable.setSelectable(true);
 
 		srcContentTable.addContainerProperty("Ordner", String.class, null);
-		// srcContentTable.addContainerProperty("Children", Integer.class,
-		// null);
+		srcContentTable.addContainerProperty("Typ", String.class, null);
 		srcContentTable.setWidth("100%");
 
 		srcContentTable.addValueChangeListener(new Property.ValueChangeListener() {
 			@Override
 			public void valueChange(ValueChangeEvent event) {
-				System.out.println("Selected: " + srcContentTable.getValue());
+				System.out.println("srcContentTable Selected: " + srcContentTable.getValue());
 
 			}
 		});
@@ -224,14 +231,16 @@ public class Upnp_homeUI extends UI {
 					public void received(ActionInvocation actionInvocation, DIDLContent didl) {
 
 						if (didl.getCount() < 1) {
-							srcContentTable.addItem(new Object[] { "Dieser Ordner ethält keine Elemente." }, "ASDASD");
+							srcContentTable.addItem(new Object[] { "Dieser Ordner enthält keine Elemente.", "" },
+									"ASDASD");
 							srcContentTable.setParent("ASDASD", event.getItemId());
+							srcContentTable.setChildrenAllowed("ASDASD", false);
 
 						} else {
 							// "navigate down" -> Add children
 							List<Container> containers = didl.getContainers();
 							for (Container con : containers) {
-								srcContentTable.addItem(new Object[] { con.getTitle() }, con.getId());
+								srcContentTable.addItem(new Object[] { con.getTitle(), "container" }, con.getId());
 								srcContentTable.setParent(con.getId(), event.getItemId());
 							}
 
@@ -239,10 +248,9 @@ public class Upnp_homeUI extends UI {
 							for (org.fourthline.cling.support.model.item.Item item : items) {
 								item.getId();
 
-								srcContentTable.addItem(new Object[] { item.getId() }, item.getId());
+								srcContentTable.addItem(new Object[] { item.getId(), "item" }, item.getId());
 								srcContentTable.setParent(item.getId(), event.getItemId());
-								srcContentTable.setColumnCollapsible(item.getId(), false);
-								// srcContentTable.addExpandListener(listener);
+								srcContentTable.setChildrenAllowed(item.getId(), false);
 							}
 						}
 
@@ -332,7 +340,7 @@ public class Upnp_homeUI extends UI {
 
 		targetDeviceListSelect.setWidth("100%");
 		// targetDeviceListSelect.setHeightUndefined();
-		targetDeviceListSelect.setHeight(150, Unit.PIXELS);
+		targetDeviceListSelect.setHeight(100, Unit.PIXELS);
 		targetDeviceListSelect.addItem(Upnp_homeUI.NO_UPNP_RENDERER);
 
 		targetVertLayout = new VerticalLayout(titleLabel2, targetDeviceListSelect, targetDeviceInfoPanel);
